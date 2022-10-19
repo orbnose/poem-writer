@@ -1,0 +1,3 @@
+spacy
+inflect
+mlconjug3
