@@ -4,6 +4,10 @@ import os
 import shutil
 import spacy
 import re
+import inflect
+from nltk.stem.wordnet import WordNetLemmatizer
+
+from casetense import NounTransformer
 
 def get_book_string(path):
 	READSIZE = 65536*5
@@ -34,42 +38,88 @@ def clean(text):
 
 	return text
 
+class WordCleaner(inflect.engine):
+	
+	def __init__(self, *args, **kwargs):
+		super(self.__class__, self).__init__(*args, **kwargs)
+
+		#define the conjugator
+		self.verb_base = WordNetLemmatizer()
+		self.noun_transformer = NounTransformer()
+
+	def clean_word(self, text, pos_tag, dependency_label):
+	# Transformations on text to get consistent letter casing, noun number, and verb number/tense in the database.
+	#  Assumes english part of speech tagging provided by spacy.
+
+
+		# Convert the text to lowercase if not a proper noun
+		if not (pos_tag == 'NNP' or pos_tag == 'NNPS'):
+			text = text.lower()
+		
+		#Handle nouns and pronouns
+		if ('NN' in pos_tag or 'PRP' in pos_tag or 'WP' in pos_tag):
+			return self.noun_transformer.transform(text, pos_tag, singular=True)
+		
+		# Convert verb to base form
+		if 'VB' in pos_tag and not (
+		 'nn' in dependency_label or 
+		 'noun' in dependency_label or 
+		 'np' in dependency_label or 
+		 'nsub' in dependency_label or
+		 'mod' in dependency_label or
+		 'obj' in dependency_label or
+		 'pcomp' in dependency_label or
+		 'xcomp' in dependency_label):
+			singular_verb = self.verb_base.lemmatize(text,'v')
+			if singular_verb:
+				text = singular_verb
+			''' I tried using mlconjug3 via the line below, but it doesn't handle non-base verbs well
+			     singular_verb = self.conjugator.conjugate(text).conjug_info['indicative']['indicative present']['3s']
+			'''
+		return text
+
 def get_root_token(sentence_doc):
 	for token in sentence_doc:
 		if token.dep_ == 'ROOT':
 			return token
 	return None
 
-def save_words_recur(root_token, ancestor_word_pk, Word):
+def save_words_recur(root_token, ancestor_word_pk, Word, cleaner):
 	
 	# save root token
 	text = root_token.text
+	pos_tag = root_token.tag_
 	dependency_label = root_token.dep_
 	if dependency_label == "ROOT":
 		dependency_label = 'root verb'
 
+	# clean up text for database
+	text = cleaner.clean_word(text, pos_tag, dependency_label)
+
+	# TODO: Rewrite this
 	_ = Word(text='Rewrite this...')
-	word_pk = _.update_or_create_word(text, dependency_label, ancestor_word_pk)
+	word_pk = _.update_or_create_word(text, pos_tag, dependency_label, ancestor_word_pk)
 
 	# process child tokens
 	for child_token in root_token.children:
-		save_words_recur(child_token, word_pk, Word)
+		save_words_recur(child_token, word_pk, Word, cleaner)
 
 
 def save_words(sentence_doc, Word):
+	cleaner = WordCleaner()
+	
 	root_token = get_root_token(sentence_doc)
 	if not root_token:
 		return None
 	
 
-	save_words_recur(root_token, ancestor_word_pk=None, Word=Word)
+	save_words_recur(root_token, ancestor_word_pk=None, Word=Word, cleaner=cleaner)
 
 
 def main():
 	from db.models import BookFile, Word
 
 	nlp = spacy.load('en_core_web_sm')
-
 
 	books_dir = 'books/'
 	processed_dir = 'books/processed/'
