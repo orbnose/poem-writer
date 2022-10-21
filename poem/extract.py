@@ -3,7 +3,7 @@ import os
 import shutil
 import spacy
 import re
-from .models import BookFile, Word
+from .models import BookFile, Word, update_or_create_word
 import time
 
 from .casetense import NounTransformer, VerbTransformer
@@ -60,7 +60,7 @@ class WordCleaner():
 		
 		# Convert nouns and pronouns to singular form
 		if ('NN' in pos_tag or 'PRP' in pos_tag or 'WP' in pos_tag):
-			return self.noun_transformer.transform_for_db(text, pos_tag, singular=True)
+			return self.noun_transformer.transform_for_db(text, pos_tag, dependency_label)
 		
 		# Convert verbs to base form (lemma)
 		if 'VB' in pos_tag and not (
@@ -83,7 +83,7 @@ def get_root_token(sentence_doc):
 			return token
 	return None
 
-def save_words_recur(root_token, ancestor_word_pk, Word, cleaner):
+def save_words_recur(root_token, ancestor_word_pk, cleaner):
 	
 	# save root token
 	text = root_token.text
@@ -95,22 +95,21 @@ def save_words_recur(root_token, ancestor_word_pk, Word, cleaner):
 	# clean up text for database
 	text = cleaner.clean_word(text, pos_tag, dependency_label)
 
-	# TODO: Rewrite this
-	_ = Word(text='Rewrite this...')
-	word_pk = _.update_or_create_word(text, pos_tag, dependency_label, ancestor_word_pk)
+	# Save or update word
+	word_pk = update_or_create_word(text, pos_tag, dependency_label, ancestor_word_pk)
 
 	# process child tokens
 	for child_token in root_token.children:
-		save_words_recur(child_token, word_pk, Word, cleaner)
+		save_words_recur(child_token, word_pk, cleaner)
 
 
-def save_words(sentence_doc, Word, cleaner):
+def save_words(sentence_doc, cleaner):
 	
 	root_token = get_root_token(sentence_doc)
 	if not root_token:
 		return None
 
-	save_words_recur(root_token, ancestor_word_pk=None, Word=Word, cleaner=cleaner)
+	save_words_recur(root_token, ancestor_word_pk=None, cleaner=cleaner)
 
 
 def extract_books(books_dir):
@@ -160,8 +159,9 @@ def extract_books(books_dir):
 				if re.search(r'[0-9]+', sentence):
 					continue
 
+				# Save words into db
 				sentence_doc = nlp(sentence)
-				save_words(sentence_doc, Word=Word, cleaner=cleaner)
+				save_words(sentence_doc, cleaner)
 
 				# Display dots every 100 sentences
 				sent_num = sent_num + 1

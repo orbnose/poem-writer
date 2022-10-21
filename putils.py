@@ -18,6 +18,7 @@ if __name__ == "__main__":
     try:
         arg = sys.argv[1]
 
+        # --- extract ---
         if arg == 'extract':
             book_dir = sys.argv[2]
             if not book_dir:
@@ -25,9 +26,11 @@ if __name__ == "__main__":
             else:
                 extract_books(book_dir)
 
+        # --- make poem line ---
         elif arg == 'makeline':
             make_line()
-            
+        
+        # ---- print usage ---
         else:
             print_usage()
 
