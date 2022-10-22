@@ -26,7 +26,7 @@ class WordChooser():
         word = wordlist[ random.randrange(0, max) ]
         
         # conjugate verbs
-        if dependency_label == 'root verb':
+        if dependency_label == 'ROOT':
             text = self.choose_verb(word.text, voice, singular, verb_tense)
         # number nouns/pronouns
         elif 'NN' in pos_tag or 'PRP' in pos_tag or 'WP' in pos_tag:
