@@ -16,10 +16,6 @@ class WordChooser():
         return self.noun_transformer.transform(text, pos_tag, dependency_label, voice, singular)
 
     def choose(self, pos_tag, dependency_label, voice, singular, verb_tense):
-        
-        # handle punctuation
-        if dependency_label == 'punct':
-            return '.'
 
         # choose random word. TODO: make swappable random selection model
         wordlist = Word.objects.filter(pos_tag=pos_tag, dependency_label=dependency_label)

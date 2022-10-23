@@ -1,3 +1,4 @@
+django
 spacy
 inflect
 mlconjug3

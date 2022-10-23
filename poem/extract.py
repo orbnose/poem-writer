@@ -1,5 +1,6 @@
 import hashlib
 import os
+from pickle import NONE
 import shutil
 import spacy
 import re
@@ -37,13 +38,19 @@ def clean(text):
 	# remove hyphens and underscores
 	text = re.sub('\-', ' ', str(text))
 	text = re.sub('\_', ' ', str(text))
-	# remove quotation marks
-	text = re.sub('\"', '', str(text))
+	# turn quotes into sentences
+	text = re.sub('\"', '.', str(text))
+	text = re.sub('`', '.', str(text))
+	text = re.sub('“', '.', str(text))
+	text = re.sub('“', '.', str(text))
+	text = re.sub('‟', '.', str(text))
+	text = re.sub('”', '.', str(text))
+	'''
 	# Replace ending punctuation
 	text = re.sub('\!', '.', str(text))
 	text = re.sub('\?', '.', str(text))
 	text = re.sub('\:', '.', str(text))
-
+	'''
 	return text
 
 def is_verb_position(pos_tag, dependency_label):
@@ -140,6 +147,10 @@ def save_words_and_template(sentence):
 	
 	# Ignore sentences with numerals
 	if re.search(r'[0-9]+', sentence):
+		return None
+
+	# I'm gonna assume garbage if a sentence has more than one period.
+	if sentence.count('.') > 1:
 		return None
 
 	# Tag the sentence
