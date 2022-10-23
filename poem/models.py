@@ -47,7 +47,10 @@ class Template(models.Model):
     # JSONFields might be better in the long run for these 3, but not using it since I'm not sure what my backend will be.
     pos_tags_json = models.CharField(max_length = 500) # assuming tagging by spacy
     dependency_labels_json = models.CharField(max_length = 500) # assuming tagging by spacy
-    dependency_order_json = models.CharField(max_length=500) # order of dependency labels list indices sorted by least dependent (root) to most
+    
+    # Each value points to this word's ancestor position in pos_tags or dependency_labels
+    #  -1 indicates the root words.
+    ancestor_positions_json = models.CharField(max_length=500)
 
     hash = models.CharField(max_length=32) # max length set for MD5 hash
     num_words = models.PositiveIntegerField()
@@ -60,8 +63,8 @@ class Template(models.Model):
     def set_dependency_labels(self, dependency_labels_tuple):
             self.dependency_labels_json = set_json(dependency_labels_tuple)
     
-    def set_dependency_order(self, dependency_order_tuple):
-        self.dependency_order_json = set_json(dependency_order_tuple)
+    def set_ancestor_positions(self, ancestor_position_list):
+        self.ancestor_positions_json = set_json(ancestor_position_list)
 
     def get_pos_tags(self):
         return json.loads(self.pos_tags_json)
@@ -69,8 +72,8 @@ class Template(models.Model):
     def get_dependency_labels(self):
         return json.loads(self.dependency_labels_json)
     
-    def get_dependency_order(self):
-        return json.loads(self.dependency_order_json)
+    def get_ancestor_positions(self):
+        return json.loads(self.ancestor_positions_json)
     
     def set_hash(self):
         if not (self.pos_tags_json and self.dependency_labels_json):

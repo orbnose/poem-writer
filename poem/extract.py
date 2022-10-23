@@ -88,12 +88,12 @@ def get_root_token(sentence_doc):
 			return token
 	return None
 
-def save_words_recur(root_token, ancestor_word_pk):
-	
-	# save root token
+def save_words_recur(root_token, ancestor_position_list, ancestor_position, ancestor_word_pk):
+
 	text = root_token.text
 	pos_tag = root_token.tag_
 	dependency_label = root_token.dep_
+	sentence_position = root_token.i
 
 	# clean up text for database
 	text = word_cleaner.clean_word(text, pos_tag, dependency_label)
@@ -101,14 +101,18 @@ def save_words_recur(root_token, ancestor_word_pk):
 	# Save or update word
 	word_pk = update_or_create_word(text, pos_tag, dependency_label, ancestor_word_pk)
 
+	# Save ancestor position
+	if not ancestor_position:
+		ancestor_position = -1 # root word for the sentence
+	ancestor_position_list[sentence_position] = ancestor_position
+
 	# process child tokens recursively
 	for child_token in root_token.children:
-		save_words_recur(child_token, word_pk)
+		save_words_recur(child_token, ancestor_position_list, sentence_position, word_pk)
 
-def extract_template_features(sentence_doc):
+def extract_template_features(sentence_doc, ancestor_position_list):
 	pos_tags_list = []
 	dependency_labels_list = []
-	dependency_order_list = []
 	is_root_verb = False
 	is_root_imperative = True
 	num_words = len(sentence_doc)
@@ -116,7 +120,6 @@ def extract_template_features(sentence_doc):
 	for token in sentence_doc:
 		pos_tags_list.append(token.tag_)
 		dependency_labels_list.append(token.dep_)
-		dependency_order_list.append( len(list(token.ancestors)) )
 		if token.dep_ == 'ROOT' and is_verb_position(token.tag_, token.dep_):
 			is_root_verb = True
 		if token.dep_ == 'expl' or 'sub' in token.dep_:
@@ -125,7 +128,7 @@ def extract_template_features(sentence_doc):
 	template = Template(is_root_verb=is_root_verb, is_root_imperative=is_root_imperative, num_words=num_words)
 	template.set_pos_tags(pos_tags_list)
 	template.set_dependency_labels(dependency_labels_list)
-	template.set_dependency_order(dependency_order_list)
+	template.set_ancestor_positions(ancestor_position_list)
 	template.set_hash()
 
 	if not Template.objects.filter(hash=template.hash): #already exists
@@ -142,14 +145,15 @@ def save_words_and_template(sentence):
 	# Tag the sentence
 	sentence_doc = nlp(sentence)
 
-	# Save words
+	# Save words and ancestor positions
+	ancestor_position_list = [None for token in sentence_doc] # allocate storage slots
 	root_token = get_root_token(sentence_doc)
 	if not root_token:
 		return None
-	save_words_recur(root_token, ancestor_word_pk=None)
+	save_words_recur(root_token, ancestor_position_list, ancestor_position=None, ancestor_word_pk=None)
 
 	# Extract template features and save if unique
-	template = extract_template_features(sentence_doc)
+	template = extract_template_features(sentence_doc, ancestor_position_list)
 
 # --- #--- # --- #--- # --- #--- Module-wide tools ---# ---# ---# ---# ---# ---#
 nlp = spacy.load('en_core_web_sm')

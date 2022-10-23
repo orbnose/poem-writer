@@ -1,6 +1,7 @@
 import random
 
-from .models import Word
+from django.db.models import Q
+from .models import Word, Template
 from .casetense import NounTransformer, VerbTransformer
 
 class WordChooser():
@@ -36,4 +37,20 @@ class WordChooser():
             text = word.text
         
         return text
-            
+
+class TemplateChooser():
+    def choose(self, num_words, require_root_verb=False, require_root_imperative=False):
+        
+        # Handle optional Flags
+        optional_args = Q()
+        if require_root_verb:
+            optional_args = optional_args & Q(is_root_verb=True)
+        if require_root_imperative:
+            options_args = options_args & Q(is_root_imperative=True)
+        
+        # query DB
+        templatelist = Template.objects.filter(optional_args, num_words=num_words)
+
+        # choose random word TODO: make swappable random selection model
+        max = len(templatelist)
+        return templatelist [ random.randrange(0, max) ]
