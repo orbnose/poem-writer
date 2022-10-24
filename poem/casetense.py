@@ -11,11 +11,15 @@ def convert_label_and_tag(spacy_dep_label, pos_tag):
     ):
         return 'poss'
     elif (
-        'obj' in spacy_dep_label or 
-        'dative' in spacy_dep_label or
+        'dobj' in spacy_dep_label or 
         'comp' in spacy_dep_label
     ):
         return 'obj'
+    elif (
+        'dative' in spacy_dep_label or
+        'pobj' in spacy_dep_label
+    ):
+        return 'dative'
 
     # fallback default
     return 'subj'
@@ -87,7 +91,7 @@ class VerbTransformer():
         }
         self.tense_options = (
             'indicative present', 'indicative past tense', 'indicative present continuous', 'indicative present perfect',
-            'infinite present',
+            'infinitive present',
             'imperative present',
         )
         # mlconjug3 conjug_info OrderedDict categories:
@@ -108,6 +112,7 @@ class VerbTransformer():
 
         text = text.lower()
         singular_verb = self.lemmatizer.lemmatize(text,'v')
+        singular_verb = self.conjugate(singular_verb, voice='third', singular=False, verb_tense='indicative present')
         if singular_verb:
             return singular_verb
         return text
@@ -128,7 +133,12 @@ class VerbTransformer():
         # translate verb case
         verb_case = self.translate_verb_case(voice, singular)
 
-        return self.conjugator.conjugate(text).conjug_info[verb_category][verb_tense][verb_case]
+        #conjugate
+        if verb_category == 'imperative' or verb_category == 'indicative':
+            conjugation = self.conjugator.conjugate(text).conjug_info[verb_category][verb_tense][verb_case]
+        else:
+            conjugation = self.conjugator.conjugate(text).conjug_info[verb_category][verb_tense]
 
+        return conjugation
 
     

@@ -4,7 +4,7 @@ first_subj_dict = {
     'I': ['I','we'],
     'we': ['I','we'],
 }
-first_obj_dict = {
+first_dobj_dict = {
     'me': ['me','us'],
     'mine': ['mine','ours'],
     'myself': ['myself','ourselves'],
@@ -13,22 +13,38 @@ first_obj_dict = {
     'ourselves': ['myself','ourselves'],
     'us': ['me','us'],
 }
+first_pobj_dict = {
+    'me': ['me','us'],
+    'myself': ['myself','ourselves'],
+    'ourself': ['myself','ourself'],
+    'ourselves': ['myself','ourselves'],
+    'us': ['me','us'],
+}
 first_poss_dict = {
-    'mine': ['mine','ours'],
+    'mine': ['mine','our'],
     'my': ['my','our'],
     'our': ['my','our'],
 }
 second_subj_dict = {
     'you': ['you','you'],
 }
-second_obj_dict = {
+second_dobj_dict = {
     'thee': ['thee','ye'],
     'thine': ['thine','thine'],
     'thou': ['thou','ye'],
     'thyself': ['thyself','yourselves'],
     'ye': ['thee','ye'],
     'you': ['you','you'],
-    'yours': ['your','your'],
+    'yours': ['yours','yours'],
+    'yourself': ['yourself','yourselves'],
+    'yourselves': ['yourself','yourselves'],
+}
+second_pobj_dict = {
+    'thee': ['thee','ye'],
+    'thou': ['thou','ye'],
+    'thyself': ['thyself','yourselves'],
+    'ye': ['thee','ye'],
+    'you': ['you','you'],
     'yourself': ['yourself','yourselves'],
     'yourselves': ['yourself','yourselves'],
 }
@@ -84,7 +100,7 @@ third_subj_dict = {
     'whoso': ['whoso','who all'],
     'whosoever': ['whosoever','whosoever all'],
 }
-third_obj_dict = {
+third_dobj_dict = {
     'all': ['one','all'],
     'another': ['another','others'],
     'anybody': ['anybody','all'],
@@ -98,12 +114,66 @@ third_obj_dict = {
     'everyone': ['everyone','all'],
     'everything': ['everything','all things'],
     'few': ['one', 'few'],
-    'her': ['her','their'],
+    'her': ['her','them'],
     'hers': ['hers','theirs'],
     'herself': ['herself','themselves'],
     'him': ['him','them'],
     'himself': ['himself','themselves'],
-    'it': ['it','they'],
+    'it': ['it','them'],
+    'itself': ['itself','theirselves'],
+    'many': ['one','many'],
+    'most': ['one','most'],
+    'neither': ['neither','none'],
+    'nobody': ['nobody','none'],
+    'none': ['neither','none'],
+    'nothing': ['nothing','none'],
+    'one': ['one','many'],
+    'other': ['other','others'],
+    'others': ['other','others'],
+    'several': ['one','several'],
+    'some': ['one','some'],
+    'somebody': ['somebody','all'],
+    'someone': ['someone','all'],
+    'something': ['something','all things'],
+    'such': ['such','such things'],
+    'that': ['that','these'],
+    'theirs': ['hers','theirs'],
+    'theirself': ['herself','theirselves'],
+    'theirselves': ['herself','theirselves'],
+    'them': ['her','them'],
+    'themself': ['herself','themself'],
+    'themselves': ['herself','themselves'],
+    'these': ['this','these'],
+    'this': ['this','these'],
+    'those': ['that','those'],
+    'what': ['what','what things'],
+    'whatever': ['whatever','whatever things'],
+    'whichever': ['whichever','whichever'],
+    'whichsoever': ['whichsoever','whichsoever'],
+    'whom': ['whom','whom'],
+    'whomever': ['whomever','whomever'],
+    'whomso': ['whomso','whomso'],
+    'whomsoever': ['whomsoever','whomsoever'],
+}
+third_pobj_dict = {
+    'all': ['one','all'],
+    'another': ['another','others'],
+    'anybody': ['anybody','all'],
+    'anyone': ['anyone','all'],
+    'anything': ['anything','all things'],
+    'both': ['either','both'],
+    'each': ['each','all'],
+    'either': ['either','both'],
+    'enough': ['enough','enough things'],
+    'everybody': ['everybody','all'],
+    'everyone': ['everyone','all'],
+    'everything': ['everything','all things'],
+    'few': ['one', 'few'],
+    'her': ['her','them'],
+    'herself': ['herself','themselves'],
+    'him': ['him','them'],
+    'himself': ['himself','themselves'],
+    'it': ['it','them'],
     'itself': ['itself','theirselves'],
     'many': ['one','many'],
     'most': ['one','most'],
@@ -142,7 +212,7 @@ third_obj_dict = {
 }
 third_poss_dict = {
     'her': ['her','their'],
-    'his': ['his','theirs'],
+    'his': ['his','their'],
     'its': ['its','their'],
     'their': ['her','their'],
     'whose': ['whose','whose'],
@@ -169,17 +239,20 @@ class Pronoun():
         self.dictionary = {
             'first': {
                 'subj': first_subj_dict,
-                'obj': first_obj_dict,
+                'obj': first_dobj_dict, # direct object
+                'dative': first_pobj_dict, #dative or prepositional object
                 'poss': first_poss_dict,
             },
             'second': {
                 'subj': second_subj_dict,
-                'obj': second_obj_dict,
+                'obj': second_dobj_dict, # direct object
+                'dative': second_pobj_dict, #dative or prepositional object
                 'poss': second_poss_dict,
             },
             'third': {
                 'subj': third_subj_dict,
-                'obj': third_obj_dict,
+                'obj': third_dobj_dict, # direct object
+                'dative': third_pobj_dict, #dative or prepositional object
                 'poss': third_poss_dict,
             }
         }
@@ -189,7 +262,7 @@ class Pronoun():
         # validate voice
         validate_voice(voice)
         # validate dependency_label
-        if not (dependency_label=='subj' or dependency_label=='obj' or dependency_label=='poss'):
+        if not (dependency_label=='subj' or dependency_label=='obj' or dependency_label=='dative' or dependency_label=='poss'):
             raise ValueError('invalid dependency label input')
         # validate singular
         validate_singular(singular)

@@ -1,3 +1,5 @@
+from ast import Pass
+from codecs import replace_errors
 import hashlib
 import os
 from pickle import NONE
@@ -36,21 +38,33 @@ def clean(text):
 	# remove apostraphes
 	text = re.sub('\'', '', str(text))
 	# remove hyphens and underscores
-	text = re.sub('\-', ' ', str(text))
-	text = re.sub('\_', ' ', str(text))
-	# turn quotes into sentences
-	text = re.sub('\"', '.', str(text))
-	text = re.sub('`', '.', str(text))
-	text = re.sub('“', '.', str(text))
-	text = re.sub('“', '.', str(text))
-	text = re.sub('‟', '.', str(text))
-	text = re.sub('”', '.', str(text))
-	'''
+	text = re.sub(r'\-', ' ', str(text))
+	text = re.sub(r'\_', ' ', str(text))
+	# convert semicolons
+	text = re.sub(r';', ',', str(text))
+
+	# turn quotes and brackets into sentences
+	text = re.sub(r'\"', '.', str(text))
+	text = re.sub(r'`', '.', str(text))
+	text = re.sub(r'“', '.', str(text))
+	text = re.sub(r'“', '.', str(text))
+	text = re.sub(r'‟', '.', str(text))
+	text = re.sub(r'”', '.', str(text))
+	text = re.sub(r'\[', '.', str(text))
+	text = re.sub(r'\]', '.', str(text))
+	text = re.sub(r'\(', '.', str(text))
+	text = re.sub(r'\)', '.', str(text))
+	text = re.sub(r'\}', '.', str(text))
+	text = re.sub(r'\{', '.', str(text))
+
+	# turn commas into sentences
+	#text = re.sub(r'\,', '.', str(text))
+
 	# Replace ending punctuation
-	text = re.sub('\!', '.', str(text))
-	text = re.sub('\?', '.', str(text))
+	#text = re.sub('\!', '.', str(text))
+	#text = re.sub('\?', '.', str(text))
 	text = re.sub('\:', '.', str(text))
-	'''
+
 	return text
 
 def is_verb_position(pos_tag, dependency_label):
@@ -122,15 +136,18 @@ def extract_template_features(sentence_doc, ancestor_position_list):
 	dependency_labels_list = []
 	is_root_verb = False
 	is_root_imperative = True
-	num_words = len(sentence_doc)
+	
 
 	for token in sentence_doc:
+
 		pos_tags_list.append(token.tag_)
 		dependency_labels_list.append(token.dep_)
 		if token.dep_ == 'ROOT' and is_verb_position(token.tag_, token.dep_):
 			is_root_verb = True
 		if token.dep_ == 'expl' or 'sub' in token.dep_:
 			is_root_imperative = False
+	
+	num_words = len(pos_tags_list)
 
 	template = Template(is_root_verb=is_root_verb, is_root_imperative=is_root_imperative, num_words=num_words)
 	template.set_pos_tags(pos_tags_list)
@@ -143,7 +160,64 @@ def extract_template_features(sentence_doc, ancestor_position_list):
 	else:
 		template = None
 
+def nlp_with_rule_filtering(sentence):
+# TODO: Re-write this. Is there a more efficient way to exclude words without having to reconstruct and then decontruct
+#        the sentence again? I am doing so now because I need the children dependents returned by nlp() to match the
+#        words going into the database, so I can't exclude words without re-processing.
+
+	# Get initial tokens
+	sentence_doc = nlp(sentence)
+	
+	# tools for template rules
+	reconstructed_sentence = ''
+	extra_properties = ['' for _ in sentence_doc] #preallocate slots
+	replacement_text = list(extra_properties)
+
+	
+	for index, token in enumerate(sentence_doc):
+
+		# --- --- Rules for template processing: (e.g. which kinds of words do we want to ignore?) --- ---
+
+		# 1. Do not save punctuation into the db.
+		#if ('punct' in token.dep_):
+		#	extra_properties[index] = 'IGNORE'
+
+		# 2. Do not save adverbs if they come directly after a verb. I find this really messes with correct tagging
+		#     of some sentences from which auxiliary verbs have been removed.
+		#     These could be inserted in line construction instead.
+		#     Problematic example sentence:
+		#		In the case of herbs, like goldenrod or daisy, the stem may be apparently all pith on the inside,
+		# 		with only a thin outer coating of harder substance, not unlike bark, but usually green.
+		if ('advmod' in token.dep_) and (index > 0 and 'VB' in sentence_doc[index-1].tag_ and not 'VBG' in sentence_doc[index-1].tag_):
+			extra_properties[index] = 'IGNORE'
+
+		# 3. If an auxiliary verb is a child of a verb that could be mistaken for yet another aux, replace the ambiguous verb with an explicit non-aux.
+		for child in token.children:
+			if ('MD' in child.tag_) or ('VB' in child.tag_ and 'aux' in child.dep_):
+				if token.text.lower() in ['be', 'have', 'do']:
+					replacement_text[index] = 'become'
+
+		# 4. Do not save auxiliary verbs in the template db. These will be inserted in line construction instead.
+		if ('MD' in token.tag_) or ('VB' in token.tag_ and 'aux' in token.dep_):
+			extra_properties[index] = 'IGNORE'
+		
+		# --- --- Process rules --- ---
+		if extra_properties[index] == 'IGNORE':
+			continue
+		
+		if replacement_text[index]:
+			newtext = replacement_text[index]
+		else:
+			newtext = sentence_doc[index].text
+
+		# --- --- After all rules, reconstruct the sentence --- ---
+		reconstructed_sentence = reconstructed_sentence + newtext + ' '
+	
+	# Get final tokens
+	return nlp(reconstructed_sentence)
+
 def save_words_and_template(sentence):
+	
 	
 	# Ignore sentences with numerals
 	if re.search(r'[0-9]+', sentence):
@@ -154,7 +228,7 @@ def save_words_and_template(sentence):
 		return None
 
 	# Tag the sentence
-	sentence_doc = nlp(sentence)
+	sentence_doc = nlp_with_rule_filtering(sentence)
 
 	# Save words and ancestor positions
 	ancestor_position_list = [None for token in sentence_doc] # allocate storage slots
