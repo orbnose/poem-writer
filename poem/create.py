@@ -54,6 +54,12 @@ class Line():
                 require_voice_agreement = True
                 require_number_agreement = True
 
+            # 3. Skip auxiliary verbs in the template (these should not be in the db but may have snuck in after 
+            #     template changes during template extraction). If needed, they can be added with
+            #     verb conjugation.
+            if ('MD' in pos_tag) or ('VB' in pos_tag and 'aux' in dependency_label):
+                continue
+
             # random voice selection if not dealing with subj-verb agreement
             # TODO: make swappable random model
             if not require_voice_agreement:
