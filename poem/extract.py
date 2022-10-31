@@ -36,7 +36,8 @@ def clean(text):
 	# remove newline characters
 	text = re.sub('\n', ' ', str(text))
 	# remove apostraphes
-	text = re.sub('\'', '', str(text))
+	text = re.sub(r'\'', '', str(text))
+	text = re.sub(r'\’','', str(text))
 	# remove hyphens and underscores
 	text = re.sub(r'\-', ' ', str(text))
 	text = re.sub(r'\_', ' ', str(text))
