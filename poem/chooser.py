@@ -1,6 +1,8 @@
 import random
+import math
 
-from django.db.models import Q
+from django.db.models import Q, Avg
+
 from .models import Word, Template
 from .casetense import NounTransformer, VerbTransformer
 from .extract import WordCleaner
@@ -24,11 +26,14 @@ class WordChooser():
 
 
         # choose random word. TODO: make swappable random selection model
-        if (ancestor_dependency_label=='ZZZ' and ancestor_pos_tag=='ZZZ'): # ROOT word
+        # For now, this biases the more common half of available words based on average count
+
+        # ROOT word wordlist (no ancestor)
+        if (ancestor_dependency_label=='ZZZ' and ancestor_pos_tag=='ZZZ'):
             wordlist = Word.objects.filter(pos_tag=pos_tag, dependency_label=dependency_label,)
-
-        else: # Assume there is a matching ancestor with the chosen text. If not, do another random lookup without the ancestor.
-
+        
+        # Assume there is a matching ancestor with the chosen text. If not, do another random lookup without the ancestor.
+        else: 
             # prepare ancestor text for db lookup
             ancestor_text = self.cleaner.clean_word(ancestor_text, ancestor_pos_tag, ancestor_dependency_label)
 
@@ -42,11 +47,14 @@ class WordChooser():
             if not wordlist:
                 wordlist = Word.objects.filter(pos_tag=pos_tag, dependency_label=dependency_label,)
 
+        average_count = math.ceil( wordlist.aggregate(Avg('count'))['count__avg'] )
+        print('average count: ',average_count)
+        wordlist = wordlist.filter(count__gte=average_count)
         max = len(wordlist)
         word = wordlist[ random.randrange(0, max) ]
         
         # conjugate verbs
-        if ('VB' in pos_tag) and (dependency_label == 'ROOT' or 'comp' in dependency_label or 'cl' in dependency_label or 'conj' in dependency_label):
+        if ('VB' in pos_tag) and (dependency_label == 'ROOT' or 'comp' in dependency_label or ('cl' in dependency_label and not 'acl' in dependency_label) or 'conj' in dependency_label):
             text = self.choose_verb(word.text, voice, singular, verb_tense)
         # number nouns/pronouns
         elif 'NN' in pos_tag or 'PRP' in pos_tag or 'WP' in pos_tag:
@@ -56,6 +64,26 @@ class WordChooser():
             text = word.text
         
         return text
+
+    def determiner(self, next_word, next_pos_tag, next_dependency_label):
+        next_word = next_word.lower()
+        next_word = self.cleaner.clean_word(next_word, next_pos_tag, next_dependency_label)
+        next_start = next_word[0:2]
+        first_letter = next_word[0]
+
+        if next_word in ['house']:
+            return 'a'
+
+        if next_start == 'one' or next_start == 'uni' or next_start == 'use':
+            return 'a'
+
+        if next_start == 'hou' or next_start == 'hon':
+            return 'an'
+        
+        if first_letter in ['a', 'e', 'i', 'o', 'u']:
+            return 'an'
+        
+        return 'a'
 
 class TemplateChooser():
     def choose(self, num_words, require_root_verb=False, require_root_imperative=False):

@@ -1,5 +1,7 @@
 import re
 import random
+
+from poem.extract import WordCleaner
 from .chooser import TemplateChooser, WordChooser
 
 wordChooser = WordChooser()
@@ -57,10 +59,23 @@ class Line():
         require_voice_agreement = False
         require_number_agreement = False
 
-        # Correct potential inter-word selection problems with the following rules:
+        # --- Correct potential inter-word selection problems with the following rules: ---
 
-        # 1. Make sure voice and number match between verbs (but not gerunds/infinites?) and nouns. 
-        if ('VB' in ancestor_pos_tag and not 'VBG' in ancestor_pos_tag) or ('VB' in pos_tag and not 'VBG' in pos_tag):
+        # 1. Make sure voice and number match between verbs (but not gerunds/infinites?) and nouns during conjugation and noun formation.
+        #    Target both this word's labels and the ancestor's labels to capture both verbs and nouns.
+        if ('VB' in pos_tag) and (
+          dependency_label == 'ROOT' or 
+          'comp' in dependency_label or 
+          ('cl' in dependency_label and not 'acl' in dependency_label) or 
+          'conj' in dependency_label):
+            require_voice_agreement = True
+            require_number_agreement = True
+
+        if ('VB' in ancestor_pos_tag) and (
+          ancestor_dependency_label == 'ROOT' or
+          'comp' in ancestor_dependency_label or
+          ('cl' in ancestor_dependency_label and not 'acl' in ancestor_dependency_label) or 
+          'conj' in ancestor_dependency_label):
             require_voice_agreement = True
             require_number_agreement = True
 
@@ -75,10 +90,11 @@ class Line():
         if ('mod' in dependency_label or 'det' in dependency_label or 'pos' in dependency_label) and (
             'subj' in ancestor_dependency_label or 'obj' in ancestor_dependency_label or 'dative' in ancestor_dependency_label):
             require_number_agreement = True
+
         if ('subj' in dependency_label or 'obj' in dependency_label or 'dative' in dependency_label):
             require_number_agreement = True
 
-        # 3. Skip auxiliary verbs in the template (these should not be in the db but may have snuck in after 
+        # 4. Skip auxiliary verbs in the template (these should not be in the db but may have snuck in after 
         #     template changes during template extraction). If needed, they can be added with
         #     verb conjugation.
         if ('MD' in pos_tag) or ('VB' in pos_tag and 'aux' in dependency_label):
@@ -86,6 +102,23 @@ class Line():
             self.word_texts[position] = ''
             self.configs[position] = 'SKIPPED'
             return None
+
+
+        # 5. Handle 'a' and 'an' determiners correctly.
+        if ('det' in dependency_label and position<len(self.word_texts)-1):
+            if self.word_texts[position+1] == None:
+                self.choose_word(position+1)
+            
+            next_text = self.word_texts[position+1]
+            next_pos_tag = self.pos_tags[position+1]
+            next_dependency_label = self.dependency_labels[position+1]
+            
+            det = wordChooser.determiner(next_text, next_pos_tag, next_dependency_label)
+            self.word_texts[position] = det
+            self.configs[position] = 'DETERMINER'
+            return det
+
+        # --- Process Rules ---  
 
         # random voice selection if not dealing with subj-verb agreement
         # TODO: make swappable random model
@@ -102,7 +135,7 @@ class Line():
             singular = self.singular
         
 
-        # Choose word
+        # --- Choose word ---
         text = wordChooser.choose(pos_tag, dependency_label, ancestor_text, ancestor_pos_tag, ancestor_dependency_label, voice, singular, self.verb_tense)
         self.word_texts[position] = text
         # debug
