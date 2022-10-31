@@ -15,4 +15,4 @@ def make_line():
     print('\n')
     print(f'Template pk={line.template.pk}')
     for x, dep_ in enumerate(line.dependency_labels):
-        print( dep_, '-', line.pos_tags[x], ' ')
+        print( dep_, '-', line.pos_tags[x], '-', line.configs[x], '-', line.word_texts[x])

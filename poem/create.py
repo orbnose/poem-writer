@@ -26,6 +26,9 @@ class Line():
         # word slots
         self.word_texts = []
 
+        # config slots
+        self.configs = []
+
         # constants
         self.voice_choices = ['first', 'second', 'third']
 
@@ -58,6 +61,9 @@ class Line():
             #     template changes during template extraction). If needed, they can be added with
             #     verb conjugation.
             if ('MD' in pos_tag) or ('VB' in pos_tag and 'aux' in dependency_label):
+                
+                self.word_texts.append(' ')
+                self.configs.append('SKIPPED')
                 continue
 
             # random voice selection if not dealing with subj-verb agreement
@@ -77,6 +83,8 @@ class Line():
             # Choose words
             self.word_texts.append( wordChooser.choose(pos_tag, dependency_label, voice, singular, self.verb_tense) )
 
+            # debug
+            self.configs.append("require voice agreement: " + str(require_voice_agreement) + " --- require number agreement: " + str(require_number_agreement))
 
     def get_line_text(self) -> str:
 
